@@ -18,8 +18,8 @@ service = ScheduleService()
 
 
 @router.get("/team-members", response_model=dict[str, list[TeamMember]])
-def list_team_members() -> dict:
-    return {"items": service.list_team_members()}
+def list_team_members(active: bool | None = Query(default=None)) -> dict:
+    return {"items": service.list_team_members(active=active)}
 
 
 @router.post("/team-members", response_model=TeamMember, status_code=201)
@@ -35,6 +35,16 @@ def update_team_member(member_id: int, payload: TeamMemberUpdate) -> dict:
 @router.delete("/team-members/{member_id}")
 def delete_team_member(member_id: int) -> dict:
     return service.delete_team_member(member_id)
+
+
+@router.patch("/team-members/{member_id}/deactivate", response_model=TeamMember)
+def deactivate_team_member(member_id: int) -> dict:
+    return service.set_team_member_active(member_id, False)
+
+
+@router.patch("/team-members/{member_id}/activate", response_model=TeamMember)
+def activate_team_member(member_id: int) -> dict:
+    return service.set_team_member_active(member_id, True)
 
 
 @router.get("/schedules", response_model=dict[str, list[Schedule]])

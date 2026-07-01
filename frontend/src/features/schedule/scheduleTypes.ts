@@ -6,6 +6,7 @@ export type TeamMember = {
   name: string;
   department: string | null;
   role: TeamMemberRole;
+  active: boolean;
   created_at: string;
 };
 
@@ -24,6 +25,9 @@ export type Schedule = {
   schedule_type: ScheduleType;
   start_at: string;
   end_at: string;
+  is_all_day: boolean;
+  location: string | null;
+  status: "confirmed" | "tentative" | "cancelled";
   memo: string | null;
   created_at: string;
   updated_at: string;
@@ -35,6 +39,9 @@ export type SchedulePayload = {
   schedule_type: ScheduleType;
   start_at: string;
   end_at: string;
+  is_all_day: boolean;
+  location: string | null;
+  status: "confirmed" | "tentative" | "cancelled";
   memo: string | null;
 };
 

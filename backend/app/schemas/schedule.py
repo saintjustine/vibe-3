@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 Role = Literal["member", "manager", "admin"]
 ScheduleType = Literal["vacation", "work", "business_trip", "training", "other"]
+ScheduleStatus = Literal["confirmed", "tentative", "cancelled"]
 
 
 class TeamMemberCreate(BaseModel):
@@ -30,6 +31,7 @@ class TeamMember(BaseModel):
     name: str
     department: str | None
     role: Role
+    active: bool
     created_at: str
 
 
@@ -39,9 +41,12 @@ class ScheduleCreate(BaseModel):
     schedule_type: ScheduleType
     start_at: str
     end_at: str
+    is_all_day: bool = False
+    location: str | None = Field(default=None, max_length=160)
+    status: ScheduleStatus = "confirmed"
     memo: str | None = Field(default=None, max_length=1000)
 
-    @field_validator("title", "memo", mode="before")
+    @field_validator("title", "location", "memo", mode="before")
     @classmethod
     def strip_text(cls, value: object) -> object:
         if isinstance(value, str):
@@ -63,6 +68,9 @@ class Schedule(BaseModel):
     schedule_type: ScheduleType
     start_at: str
     end_at: str
+    is_all_day: bool
+    location: str | None
+    status: ScheduleStatus
     memo: str | None
     created_at: str
     updated_at: str

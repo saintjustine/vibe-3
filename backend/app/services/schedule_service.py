@@ -20,8 +20,8 @@ class ScheduleService:
     def __init__(self, repository: ScheduleRepository | None = None) -> None:
         self.repository = repository or ScheduleRepository()
 
-    def list_team_members(self) -> list[dict]:
-        return self.repository.list_team_members()
+    def list_team_members(self, active: bool | None = None) -> list[dict]:
+        return self.repository.list_team_members(active=active)
 
     def create_team_member(self, payload: TeamMemberCreate) -> dict:
         return self.repository.create_team_member(payload)
@@ -43,6 +43,12 @@ class ScheduleService:
             )
         self.repository.delete_team_member(member_id)
         return {"deleted": True}
+
+    def set_team_member_active(self, member_id: int, active: bool) -> dict:
+        member = self.repository.set_team_member_active(member_id, active)
+        if member is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team member not found.")
+        return member
 
     def list_schedules(
         self,
@@ -90,8 +96,14 @@ class ScheduleService:
         return {"deleted": True}
 
     def _validate_schedule_payload(self, payload: ScheduleCreate) -> None:
-        if self.repository.get_team_member(payload.user_id) is None:
+        member = self.repository.get_team_member(payload.user_id)
+        if member is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team member not found.")
+        if not member["active"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive team member cannot receive new schedules.",
+            )
 
         start_at = _parse_datetime(payload.start_at, "start_at")
         end_at = _parse_datetime(payload.end_at, "end_at")

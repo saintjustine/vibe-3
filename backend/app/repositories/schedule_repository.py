@@ -10,6 +10,7 @@ def _team_member_from_row(row: Row) -> dict:
         "name": row["name"],
         "department": row["department"],
         "role": row["role"],
+        "active": bool(row["active"]),
         "created_at": row["created_at"],
     }
 
@@ -24,6 +25,9 @@ def _schedule_from_row(row: Row) -> dict:
         "schedule_type": row["schedule_type"],
         "start_at": row["start_at"],
         "end_at": row["end_at"],
+        "is_all_day": bool(row["is_all_day"]),
+        "location": row["location"],
+        "status": row["status"],
         "memo": row["memo"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
@@ -31,14 +35,22 @@ def _schedule_from_row(row: Row) -> dict:
 
 
 class ScheduleRepository:
-    def list_team_members(self) -> list[dict]:
+    def list_team_members(self, active: bool | None = None) -> list[dict]:
+        params: list[object] = []
+        where_clause = ""
+        if active is not None:
+            where_clause = "WHERE active = ?"
+            params.append(1 if active else 0)
+
         with get_connection() as connection:
             rows = connection.execute(
-                """
-                SELECT id, name, department, role, created_at
+                f"""
+                SELECT id, name, department, role, active, created_at
                 FROM users
+                {where_clause}
                 ORDER BY name COLLATE NOCASE, id
-                """
+                """,
+                params,
             ).fetchall()
         return [_team_member_from_row(row) for row in rows]
 
@@ -46,7 +58,7 @@ class ScheduleRepository:
         with get_connection() as connection:
             row = connection.execute(
                 """
-                SELECT id, name, department, role, created_at
+                SELECT id, name, department, role, active, created_at
                 FROM users
                 WHERE id = ?
                 """,
@@ -58,8 +70,8 @@ class ScheduleRepository:
         with get_connection() as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO users (name, department, role)
-                VALUES (?, ?, ?)
+                INSERT INTO users (name, department, role, active)
+                VALUES (?, ?, ?, 1)
                 """,
                 (payload.name, payload.department, payload.role),
             )
@@ -99,6 +111,17 @@ class ScheduleRepository:
             connection.commit()
         return cursor.rowcount > 0
 
+    def set_team_member_active(self, member_id: int, active: bool) -> dict | None:
+        with get_connection() as connection:
+            cursor = connection.execute(
+                "UPDATE users SET active = ? WHERE id = ?",
+                (1 if active else 0, member_id),
+            )
+            connection.commit()
+            if cursor.rowcount == 0:
+                return None
+        return self.get_team_member(member_id)
+
     def list_schedules(
         self,
         *,
@@ -137,6 +160,9 @@ class ScheduleRepository:
                     s.schedule_type,
                     s.start_at,
                     s.end_at,
+                    s.is_all_day,
+                    s.location,
+                    s.status,
                     s.memo,
                     s.created_at,
                     s.updated_at
@@ -157,8 +183,18 @@ class ScheduleRepository:
         with get_connection() as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO schedules (user_id, title, schedule_type, start_at, end_at, memo)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO schedules (
+                    user_id,
+                    title,
+                    schedule_type,
+                    start_at,
+                    end_at,
+                    is_all_day,
+                    location,
+                    status,
+                    memo
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     payload.user_id,
@@ -166,6 +202,9 @@ class ScheduleRepository:
                     payload.schedule_type,
                     payload.start_at,
                     payload.end_at,
+                    1 if payload.is_all_day else 0,
+                    payload.location,
+                    payload.status,
                     payload.memo,
                 ),
             )
@@ -187,6 +226,9 @@ class ScheduleRepository:
                     schedule_type = ?,
                     start_at = ?,
                     end_at = ?,
+                    is_all_day = ?,
+                    location = ?,
+                    status = ?,
                     memo = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -197,6 +239,9 @@ class ScheduleRepository:
                     payload.schedule_type,
                     payload.start_at,
                     payload.end_at,
+                    1 if payload.is_all_day else 0,
+                    payload.location,
+                    payload.status,
                     payload.memo,
                     schedule_id,
                 ),
@@ -238,6 +283,9 @@ class ScheduleRepository:
                     s.schedule_type,
                     s.start_at,
                     s.end_at,
+                    s.is_all_day,
+                    s.location,
+                    s.status,
                     s.memo,
                     s.created_at,
                     s.updated_at

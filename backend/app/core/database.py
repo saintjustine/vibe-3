@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     department TEXT,
     role TEXT NOT NULL DEFAULT 'member',
+    active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -20,6 +21,9 @@ CREATE TABLE IF NOT EXISTS schedules (
     schedule_type TEXT NOT NULL,
     start_at TEXT NOT NULL,
     end_at TEXT NOT NULL,
+    is_all_day INTEGER NOT NULL DEFAULT 0,
+    location TEXT,
+    status TEXT NOT NULL DEFAULT 'confirmed',
     memo TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -75,6 +79,13 @@ CREATE TABLE IF NOT EXISTS collection_logs (
 );
 """
 
+MIGRATION_SQL = [
+    "ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE schedules ADD COLUMN is_all_day INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE schedules ADD COLUMN location TEXT",
+    "ALTER TABLE schedules ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmed'",
+]
+
 
 def ensure_directories() -> None:
     for directory in REQUIRED_DIRECTORIES:
@@ -92,6 +103,12 @@ def get_connection() -> sqlite3.Connection:
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA_SQL)
+        for statement in MIGRATION_SQL:
+            try:
+                connection.execute(statement)
+            except sqlite3.OperationalError as exc:
+                if "duplicate column name" not in str(exc).lower():
+                    raise
         connection.commit()
 
 

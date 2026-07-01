@@ -60,9 +60,9 @@ function App() {
         ))}
       </nav>
 
-      <section className="content-grid">
+      <section className={activeKey === "schedule" ? "content-grid schedule-content" : "content-grid"}>
         <FeaturePanel feature={activeFeature} />
-        <IntegrationPanel health={health} error={healthError} />
+        {activeKey === "schedule" ? null : <IntegrationPanel health={health} error={healthError} />}
       </section>
     </main>
   );

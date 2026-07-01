@@ -30,8 +30,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function listTeamMembers(): Promise<TeamMember[]> {
-  const data = await requestJson<{ items: TeamMember[] }>("/api/team-members");
+export async function listTeamMembers(active?: boolean): Promise<TeamMember[]> {
+  const params = active === undefined ? "" : `?active=${String(active)}`;
+  const data = await requestJson<{ items: TeamMember[] }>(`/api/team-members${params}`);
   return data.items;
 }
 
@@ -55,6 +56,18 @@ export async function updateTeamMember(
 export async function deleteTeamMember(memberId: number): Promise<void> {
   await requestJson<{ deleted: boolean }>(`/api/team-members/${memberId}`, {
     method: "DELETE",
+  });
+}
+
+export async function deactivateTeamMember(memberId: number): Promise<TeamMember> {
+  return requestJson<TeamMember>(`/api/team-members/${memberId}/deactivate`, {
+    method: "PATCH",
+  });
+}
+
+export async function activateTeamMember(memberId: number): Promise<TeamMember> {
+  return requestJson<TeamMember>(`/api/team-members/${memberId}/activate`, {
+    method: "PATCH",
   });
 }
 
