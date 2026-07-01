@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getHealth, type HealthResponse } from "./api/client";
 import { features, type Feature, type FeatureKey } from "./features";
+import { SchedulePage } from "./features/schedule/SchedulePage";
 
 const initialFeature = features[0].key;
 
@@ -80,6 +81,10 @@ function SystemStatus({ health, error }: { health: HealthResponse | null; error:
 }
 
 function FeaturePanel({ feature }: { feature: Feature }) {
+  if (feature.key === "schedule") {
+    return <SchedulePage />;
+  }
+
   return (
     <article className="panel feature-panel">
       <span className="panel-label">FE 페이지 구조</span>

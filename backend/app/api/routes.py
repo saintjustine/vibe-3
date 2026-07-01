@@ -1,8 +1,10 @@
 from fastapi import APIRouter
 
+from app.api.schedule import router as schedule_router
 from app.core.database import check_database, initialize_database
 
 router = APIRouter()
+router.include_router(schedule_router)
 
 
 @router.get("/health")
@@ -15,14 +17,6 @@ def health_check() -> dict:
         "version": "0.1.0",
         "database": check_database(),
         "modules": ["schedule", "excel", "chatbot", "news"],
-    }
-
-
-@router.get("/schedules")
-def list_schedules() -> dict:
-    return {
-        "items": [],
-        "message": "Schedule module scaffold is ready.",
     }
 
 
