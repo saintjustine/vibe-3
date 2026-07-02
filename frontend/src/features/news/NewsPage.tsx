@@ -8,9 +8,16 @@ import {
   listNewsKeywords,
   updateNewsKeyword,
 } from "./newsApi";
-import type { CollectionLog, NewsArticle, NewsKeyword, NewsKeywordPayload } from "./newsTypes";
+import type {
+  CollectionLog,
+  NewsArticle,
+  NewsCollectionResponse,
+  NewsKeyword,
+  NewsKeywordPayload,
+} from "./newsTypes";
 
 type Notice = { tone: "success" | "warning" | "error"; text: string };
+type PresetKey = "today" | "last1" | "last7" | "month";
 
 const emptyKeywordForm: NewsKeywordPayload = {
   keyword: "",
@@ -18,6 +25,7 @@ const emptyKeywordForm: NewsKeywordPayload = {
 };
 
 export function NewsPage() {
+  const initialRange = getPresetRange("last1");
   const [keywords, setKeywords] = useState<NewsKeyword[]>([]);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [logs, setLogs] = useState<CollectionLog[]>([]);
@@ -25,16 +33,18 @@ export function NewsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [keywordFilter, setKeywordFilter] = useState("");
   const [query, setQuery] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(initialRange.dateFrom);
+  const [dateTo, setDateTo] = useState(initialRange.dateTo);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(true);
   const [collecting, setCollecting] = useState(false);
+  const [lastResult, setLastResult] = useState<NewsCollectionResponse | null>(null);
 
   const activeKeywordCount = useMemo(
     () => keywords.filter((keyword) => keyword.is_active).length,
     [keywords],
   );
+  const latestLog = logs[0];
 
   useEffect(() => {
     void loadPage();
@@ -49,7 +59,11 @@ export function NewsPage() {
     try {
       const [nextKeywords, nextArticles, nextLogs] = await Promise.all([
         listNewsKeywords(),
-        listNewsArticles({ limit: 50 }),
+        listNewsArticles({
+          dateFrom,
+          dateTo,
+          limit: 50,
+        }),
         listCollectionLogs(),
       ]);
       setKeywords(nextKeywords);
@@ -63,7 +77,7 @@ export function NewsPage() {
   }
 
   async function loadArticles() {
-    if (dateFrom && dateTo && dateTo < dateFrom) {
+    if (!isValidDateRange(dateFrom, dateTo)) {
       setNotice({ tone: "warning", text: "종료일은 시작일과 같거나 이후여야 합니다." });
       return;
     }
@@ -132,16 +146,17 @@ export function NewsPage() {
   }
 
   async function handleCollect(keywordId?: number) {
-    if (dateFrom && dateTo && dateTo < dateFrom) {
+    if (!isValidDateRange(dateFrom, dateTo)) {
       setNotice({ tone: "warning", text: "종료일은 시작일과 같거나 이후여야 합니다." });
       return;
     }
     setCollecting(true);
     try {
       const result = await collectNews(keywordId, dateFrom || undefined, dateTo || undefined);
+      setLastResult(result);
       setNotice({
-        tone: result.collected_count > 0 ? "success" : "warning",
-        text: `신규 기사 ${result.collected_count}건을 저장했습니다.`,
+        tone: result.failed_count > 0 ? "warning" : "success",
+        text: `수집 완료: 신규 ${result.collected_count}건, 중복 제외 ${result.duplicate_count}건`,
       });
       const [nextArticles, nextLogs] = await Promise.all([
         listNewsArticles({
@@ -162,6 +177,12 @@ export function NewsPage() {
     }
   }
 
+  function applyPreset(preset: PresetKey) {
+    const range = getPresetRange(preset);
+    setDateFrom(range.dateFrom);
+    setDateTo(range.dateTo);
+  }
+
   function beginEdit(keyword: NewsKeyword) {
     setEditingId(keyword.id);
     setForm({ keyword: keyword.keyword, is_active: keyword.is_active });
@@ -173,11 +194,16 @@ export function NewsPage() {
         <div>
           <span className="panel-label">News Collector</span>
           <h2>뉴스 기사 수집</h2>
-          <p>키워드 기준으로 Google News RSS를 수집하고, 중복 URL을 제외한 기사 요약을 저장합니다.</p>
+          <p>기본값은 최근 1일 전체 활성 키워드입니다. 조건을 바꾸지 않으면 바로 수집하면 됩니다.</p>
         </div>
         <div className="news-actions">
-          <button className="primary-button" disabled={collecting || activeKeywordCount === 0} type="button" onClick={() => void handleCollect()}>
-            {collecting ? "수집 중..." : "활성 키워드 수집"}
+          <button
+            className="primary-button"
+            disabled={collecting || activeKeywordCount === 0}
+            type="button"
+            onClick={() => void handleCollect()}
+          >
+            {collecting ? "수집 중..." : "최근 1일 전체 수집"}
           </button>
         </div>
       </div>
@@ -195,7 +221,7 @@ export function NewsPage() {
               <label>
                 키워드
                 <input
-                  placeholder="예: 인공지능, 반도체"
+                  placeholder="예: 행정안전부, 반도체"
                   value={form.keyword}
                   onChange={(event) => setForm({ ...form, keyword: event.target.value })}
                 />
@@ -206,7 +232,7 @@ export function NewsPage() {
                   type="checkbox"
                   onChange={(event) => setForm({ ...form, is_active: event.target.checked })}
                 />
-                자동 수집 활성화
+                전체 수집에 포함
               </label>
               <div className="button-row">
                 <button className="primary-button" type="submit">
@@ -237,7 +263,7 @@ export function NewsPage() {
                   </div>
                   <div>
                     <button type="button" onClick={() => void handleCollect(keyword.id)} disabled={collecting}>
-                      수집
+                      이 키워드 수집
                     </button>
                     <button type="button" onClick={() => beginEdit(keyword)}>
                       수정
@@ -259,7 +285,7 @@ export function NewsPage() {
             {logs.length === 0 ? <p className="empty-text">아직 수집 로그가 없습니다.</p> : null}
             {logs.map((log) => (
               <div className={`log-item ${log.status}`} key={log.id}>
-                <strong>{log.status}</strong>
+                <strong>{log.status === "success" ? "성공" : "실패"}</strong>
                 <span>{log.message ?? "No message"}</span>
               </div>
             ))}
@@ -267,6 +293,28 @@ export function NewsPage() {
         </aside>
 
         <section className="news-main">
+          <section className="collection-command-panel">
+            <div>
+              <span className="panel-label">Quick Collect</span>
+              <h3>원클릭 수집</h3>
+              <p>
+                대상: 활성 키워드 {activeKeywordCount}개 / 기간: {dateFrom} - {dateTo}
+              </p>
+            </div>
+            <div className="preset-row" aria-label="수집 기간 빠른 선택">
+              <button type="button" onClick={() => applyPreset("today")}>오늘</button>
+              <button type="button" onClick={() => applyPreset("last1")}>최근 1일</button>
+              <button type="button" onClick={() => applyPreset("last7")}>최근 7일</button>
+              <button type="button" onClick={() => applyPreset("month")}>이번 달</button>
+            </div>
+            <div className="collection-summary-grid">
+              <SummaryTile label="검색 결과" value={lastResult ? `${lastResult.fetched_count}건` : "-"} />
+              <SummaryTile label="신규 저장" value={lastResult ? `${lastResult.collected_count}건` : "-"} emphasis />
+              <SummaryTile label="중복 제외" value={lastResult ? `${lastResult.duplicate_count}건` : "-"} />
+              <SummaryTile label="실패 키워드" value={lastResult ? `${lastResult.failed_count}개` : latestLog?.status === "failed" ? "확인 필요" : "-"} />
+            </div>
+          </section>
+
           <div className="news-filter-bar">
             <label>
               키워드
@@ -319,6 +367,47 @@ export function NewsPage() {
       </section>
     </article>
   );
+}
+
+function SummaryTile({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return (
+    <div className={emphasis ? "collection-summary-tile emphasis" : "collection-summary-tile"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function getPresetRange(preset: PresetKey) {
+  const today = new Date();
+  const start = new Date(today);
+
+  if (preset === "today") {
+    return { dateFrom: toDateInputValue(today), dateTo: toDateInputValue(today) };
+  }
+  if (preset === "last7") {
+    start.setDate(today.getDate() - 6);
+    return { dateFrom: toDateInputValue(start), dateTo: toDateInputValue(today) };
+  }
+  if (preset === "month") {
+    start.setDate(1);
+    return { dateFrom: toDateInputValue(start), dateTo: toDateInputValue(today) };
+  }
+
+  start.setDate(today.getDate() - 1);
+  return { dateFrom: toDateInputValue(start), dateTo: toDateInputValue(today) };
+}
+
+function isValidDateRange(dateFrom: string, dateTo: string) {
+  return !(dateFrom && dateTo && dateTo < dateFrom);
+}
+
+function toDateInputValue(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
 }
 
 function formatDate(value: string) {

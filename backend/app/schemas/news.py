@@ -50,5 +50,8 @@ class CollectionLog(BaseModel):
 
 
 class NewsCollectionResponse(BaseModel):
+    fetched_count: int = 0
     collected_count: int
+    duplicate_count: int = 0
+    failed_count: int = 0
     logs: list[CollectionLog]

@@ -93,7 +93,10 @@ class NewsService:
         if not keywords:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active keywords to collect.")
 
-        total = 0
+        total_fetched = 0
+        total_created = 0
+        total_duplicates = 0
+        failed_count = 0
         logs = []
         for keyword in keywords:
             started_at = _now_iso()
@@ -103,6 +106,8 @@ class NewsService:
                     date_from=normalized_from,
                     date_to=normalized_to,
                 )
+                fetched_count = len(articles)
+                total_fetched += fetched_count
                 created_count = 0
                 for article in articles:
                     created = self.repository.create_article(
@@ -115,18 +120,27 @@ class NewsService:
                     if created is not None:
                         created_count += 1
 
-                total += created_count
+                duplicate_count = fetched_count - created_count
+                total_created += created_count
+                total_duplicates += duplicate_count
                 logs.append(
                     self.repository.create_collection_log(
                         keyword_id=keyword["id"],
                         status="success",
-                        message=_collection_message(len(articles), created_count, normalized_from, normalized_to),
+                        message=_collection_message(
+                            fetched_count,
+                            created_count,
+                            duplicate_count,
+                            normalized_from,
+                            normalized_to,
+                        ),
                         collected_count=created_count,
                         started_at=started_at,
                         finished_at=_now_iso(),
                     )
                 )
             except Exception as exc:
+                failed_count += 1
                 logs.append(
                     self.repository.create_collection_log(
                         keyword_id=keyword["id"],
@@ -138,7 +152,13 @@ class NewsService:
                     )
                 )
 
-        return {"collected_count": total, "logs": logs}
+        return {
+            "fetched_count": total_fetched,
+            "collected_count": total_created,
+            "duplicate_count": total_duplicates,
+            "failed_count": failed_count,
+            "logs": logs,
+        }
 
     def _fetch_google_news(
         self,
@@ -258,10 +278,14 @@ def _parse_date(value: str, field_name: str) -> date:
 def _collection_message(
     fetched_count: int,
     created_count: int,
+    duplicate_count: int,
     date_from: str | None,
     date_to: str | None,
 ) -> str:
     range_text = ""
     if date_from or date_to:
         range_text = f" for {date_from or 'start'} to {date_to or 'today'}"
-    return f"Fetched {fetched_count} articles{range_text}, saved {created_count} new articles."
+    return (
+        f"Fetched {fetched_count} articles{range_text}, "
+        f"saved {created_count} new articles, skipped {duplicate_count} duplicates."
+    )

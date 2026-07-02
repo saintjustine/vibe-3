@@ -36,7 +36,10 @@ export type CollectionLog = {
 };
 
 export type NewsCollectionResponse = {
+  fetched_count: number;
   collected_count: number;
+  duplicate_count: number;
+  failed_count: number;
   logs: CollectionLog[];
 };
 
