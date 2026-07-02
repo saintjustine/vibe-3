@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -9,3 +10,4 @@ EXPORT_DIR = DATA_DIR / "exports"
 MANUAL_DIR = DATA_DIR / "manuals"
 
 REQUIRED_DIRECTORIES = [DATA_DIR, UPLOAD_DIR, EXPORT_DIR, MANUAL_DIR]
+NEWS_COLLECTION_INTERVAL_MINUTES = int(os.getenv("NEWS_COLLECTION_INTERVAL_MINUTES", "60"))

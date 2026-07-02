@@ -1,10 +1,12 @@
 from fastapi import APIRouter
 
+from app.api.news import router as news_router
 from app.api.schedule import router as schedule_router
 from app.core.database import check_database, initialize_database
 
 router = APIRouter()
 router.include_router(schedule_router)
+router.include_router(news_router)
 
 
 @router.get("/health")
@@ -33,12 +35,4 @@ def list_manuals() -> dict:
     return {
         "items": [],
         "message": "Complaint manual module scaffold is ready.",
-    }
-
-
-@router.get("/news")
-def list_news() -> dict:
-    return {
-        "items": [],
-        "message": "News collection module scaffold is ready.",
     }

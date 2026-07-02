@@ -60,13 +60,24 @@ CREATE TABLE IF NOT EXISTS chatbot_messages (
 
 CREATE TABLE IF NOT EXISTS news_articles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword_id INTEGER,
     title TEXT NOT NULL,
     source TEXT,
     url TEXT UNIQUE,
     published_at TEXT,
     collected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     keyword TEXT,
-    summary TEXT
+    summary TEXT,
+    content TEXT,
+    FOREIGN KEY (keyword_id) REFERENCES news_keywords (id)
+);
+
+CREATE TABLE IF NOT EXISTS news_keywords (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword TEXT NOT NULL UNIQUE,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS collection_logs (
@@ -74,8 +85,11 @@ CREATE TABLE IF NOT EXISTS collection_logs (
     job_name TEXT NOT NULL,
     status TEXT NOT NULL,
     message TEXT,
+    collected_count INTEGER NOT NULL DEFAULT 0,
+    keyword_id INTEGER,
     started_at TEXT,
-    finished_at TEXT
+    finished_at TEXT,
+    FOREIGN KEY (keyword_id) REFERENCES news_keywords (id)
 );
 """
 
@@ -84,6 +98,10 @@ MIGRATION_SQL = [
     "ALTER TABLE schedules ADD COLUMN is_all_day INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE schedules ADD COLUMN location TEXT",
     "ALTER TABLE schedules ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmed'",
+    "ALTER TABLE news_articles ADD COLUMN keyword_id INTEGER",
+    "ALTER TABLE news_articles ADD COLUMN content TEXT",
+    "ALTER TABLE collection_logs ADD COLUMN collected_count INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE collection_logs ADD COLUMN keyword_id INTEGER",
 ]
 
 

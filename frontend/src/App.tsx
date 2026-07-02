@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getHealth, type HealthResponse } from "./api/client";
 import { features, type Feature, type FeatureKey } from "./features";
+import { NewsPage } from "./features/news/NewsPage";
 import { SchedulePage } from "./features/schedule/SchedulePage";
 
 const initialFeature = features[0].key;
@@ -60,9 +61,9 @@ function App() {
         ))}
       </nav>
 
-      <section className={activeKey === "schedule" ? "content-grid schedule-content" : "content-grid"}>
+      <section className={activeKey === "schedule" || activeKey === "news" ? "content-grid schedule-content" : "content-grid"}>
         <FeaturePanel feature={activeFeature} />
-        {activeKey === "schedule" ? null : <IntegrationPanel health={health} error={healthError} />}
+        {activeKey === "schedule" || activeKey === "news" ? null : <IntegrationPanel health={health} error={healthError} />}
       </section>
     </main>
   );
@@ -83,6 +84,9 @@ function SystemStatus({ health, error }: { health: HealthResponse | null; error:
 function FeaturePanel({ feature }: { feature: Feature }) {
   if (feature.key === "schedule") {
     return <SchedulePage />;
+  }
+  if (feature.key === "news") {
+    return <NewsPage />;
   }
 
   return (
