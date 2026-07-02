@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { getHealth, type HealthResponse } from "./api/client";
+import {
+  getApiBaseUrl,
+  getHealth,
+  setApiBaseUrl,
+  testBackendConnection,
+  type HealthResponse,
+} from "./api/client";
 import { features, type Feature, type FeatureKey } from "./features";
 import { NewsPage } from "./features/news/NewsPage";
 import { SchedulePage } from "./features/schedule/SchedulePage";
@@ -12,25 +18,19 @@ function App() {
   const [healthError, setHealthError] = useState<string | null>(null);
 
   useEffect(() => {
-    let ignore = false;
-
-    getHealth()
-      .then((data) => {
-        if (!ignore) {
-          setHealth(data);
-          setHealthError(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!ignore) {
-          setHealthError(error instanceof Error ? error.message : "Unknown error");
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
+    void refreshHealth();
   }, []);
+
+  async function refreshHealth() {
+    try {
+      const data = await getHealth();
+      setHealth(data);
+      setHealthError(null);
+    } catch (error: unknown) {
+      setHealth(null);
+      setHealthError(error instanceof Error ? error.message : "Unknown error");
+    }
+  }
 
   const activeFeature = features.find((feature) => feature.key === activeKey) ?? features[0];
 
@@ -45,7 +45,10 @@ function App() {
             BE-SQLite 연결 확인을 위한 최소 실행 골격입니다.
           </p>
         </div>
-        <SystemStatus health={health} error={healthError} />
+        <div className="hero-side">
+          <SystemStatus health={health} error={healthError} />
+          <ApiSettings onSaved={() => void refreshHealth()} />
+        </div>
       </section>
 
       <nav className="feature-nav" aria-label="업무 메뉴">
@@ -77,6 +80,59 @@ function SystemStatus({ health, error }: { health: HealthResponse | null; error:
       <span className={health ? "status-dot ok" : error ? "status-dot fail" : "status-dot"} />
       <strong>{statusText}</strong>
       <p>FE에서 `/api/health`를 호출해 FastAPI와 SQLite 상태를 확인합니다.</p>
+    </aside>
+  );
+}
+
+function ApiSettings({ onSaved }: { onSaved: () => void }) {
+  const [value, setValue] = useState(getApiBaseUrl());
+  const [testing, setTesting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [tone, setTone] = useState<"success" | "error" | "info">("info");
+
+  function save() {
+    const normalized = setApiBaseUrl(value);
+    setValue(normalized);
+    setTone("info");
+    setMessage(normalized ? "백엔드 URL을 저장했습니다." : "상대 경로 /api를 사용합니다.");
+    onSaved();
+  }
+
+  async function test() {
+    setTesting(true);
+    try {
+      const normalized = value.trim().replace(/\/+$/, "");
+      const result = await testBackendConnection(normalized);
+      setTone("success");
+      setMessage(`연결 성공: ${result.service} ${result.version}`);
+    } catch (error) {
+      setTone("error");
+      setMessage(error instanceof Error ? error.message : "연결 테스트에 실패했습니다.");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <aside className="api-settings-card">
+      <strong>Backend URL</strong>
+      <label>
+        API 서버 주소
+        <input
+          placeholder="https://api.example.com"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
+      </label>
+      <div className="api-settings-actions">
+        <button type="button" onClick={save}>
+          저장
+        </button>
+        <button type="button" onClick={() => void test()} disabled={testing || !value.trim()}>
+          {testing ? "테스트 중" : "연결 테스트"}
+        </button>
+      </div>
+      {message ? <p className={`api-test-message ${tone}`}>{message}</p> : null}
     </aside>
   );
 }

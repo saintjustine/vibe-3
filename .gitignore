@@ -13,8 +13,10 @@ backend/.venv/
 backend/.pytest_cache/
 backend/**/__pycache__/
 backend/data/app.db
+backend/data/*.log
 backend/data/uploads/
 backend/data/exports/
+backend/data/manuals/
 
 .env
 .env.*

@@ -1,3 +1,4 @@
+import { requestJson } from "../../api/client";
 import type {
   Schedule,
   ScheduleFilters,
@@ -6,29 +7,6 @@ import type {
   TeamMember,
   TeamMemberPayload,
 } from "./scheduleTypes";
-
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-
-  if (!response.ok) {
-    let message = `Request failed: ${response.status}`;
-    try {
-      const body = (await response.json()) as { detail?: string };
-      message = body.detail ?? message;
-    } catch {
-      // Keep the HTTP status message when the server does not return JSON.
-    }
-    throw new Error(message);
-  }
-
-  return response.json() as Promise<T>;
-}
 
 export async function listTeamMembers(active?: boolean): Promise<TeamMember[]> {
   const params = active === undefined ? "" : `?active=${String(active)}`;
